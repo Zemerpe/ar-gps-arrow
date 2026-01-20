@@ -1,15 +1,17 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
 let scene, camera, renderer;
 let arrow;
 let userHeading = 0;
 
-// 🎯 TARGET LOCATION (CHANGE THIS)
-const targetLat = 11.0247026;
-const targetLon = 124.0109545;
+// 🎯 TARGET LOCATION (change to your destination)
+const targetLat = 11.0245585;
+const targetLon = 124.0111658;
 
 // ---------- INIT ----------
-async function initAR() {
+function initAR() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera();
 
@@ -18,67 +20,78 @@ async function initAR() {
   renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
 
+  // ✅ Correct AR button
   document.body.appendChild(
-    THREE.WEBXR.createButton(renderer, { requiredFeatures: ['hit-test'] })
+    ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] })
   );
 
   const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
   scene.add(light);
 
-  createArrow();
+  loadArrowModel();
   startSensors();
 
   renderer.setAnimationLoop(render);
 }
 
-// ---------- ARROW ----------
-function createArrow() {
-  const geometry = new THREE.ConeGeometry(0.15, 0.5, 32);
-  const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-  arrow = new THREE.Mesh(geometry, material);
+// ---------- LOAD ARROW MODEL ----------
+function loadArrowModel() {
+  const loader = new GLTFLoader();
+  loader.load(
+    './arrow.glb',  // path to your arrow.glb
+    function (gltf) {
+      arrow = gltf.scene;
+      arrow.scale.set(0.5, 0.5, 0.5);  // adjust size if needed
+      arrow.rotation.x = Math.PI / 2;  // point forward
+      arrow.position.set(0, 0, -1.5);  // distance in front of camera
 
-  arrow.rotation.x = Math.PI / 2;
-  arrow.position.set(0, 0, -1.5);
-
-  camera.add(arrow);
-  scene.add(camera);
+      camera.add(arrow);
+      scene.add(camera);
+    },
+    undefined,
+    function (error) {
+      console.error('Error loading arrow.glb:', error);
+    }
+  );
 }
 
 // ---------- GPS + COMPASS ----------
 function startSensors() {
   // GPS
-  navigator.geolocation.watchPosition(
-    updateArrowDirection,
-    err => alert("GPS error"),
-    { enableHighAccuracy: true }
-  );
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      updateArrowDirection,
+      err => alert("GPS error: " + err.message),
+      { enableHighAccuracy: true }
+    );
+  } else {
+    alert("Geolocation not supported");
+  }
 
   // Compass
   window.addEventListener('deviceorientationabsolute', e => {
     if (e.alpha !== null) {
       userHeading = e.alpha;
     }
-  });
+  }, true);
 }
 
 // ---------- MATH ----------
-function toRad(d) {
-  return d * Math.PI / 180;
-}
+function toRad(d) { return d * Math.PI / 180; }
 
 function calculateBearing(lat1, lon1, lat2, lon2) {
   const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.cos(toRad(lon2 - lon1));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2))
+          - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
-// ---------- UPDATE ----------
+// ---------- UPDATE ARROW ----------
 function updateArrowDirection(pos) {
   const lat = pos.coords.latitude;
   const lon = pos.coords.longitude;
+
+  if (!arrow) return;  // wait until model loads
 
   const bearing = calculateBearing(lat, lon, targetLat, targetLon);
   const rotation = THREE.MathUtils.degToRad(bearing - userHeading);
@@ -91,8 +104,5 @@ function render() {
   renderer.render(scene, camera);
 }
 
-// ---------- BUTTON ----------
-document.getElementById("startBtn").onclick = () => {
-  initAR();
-  document.getElementById("startBtn").style.display = "none";
-};
+// ---------- START ----------
+initAR();
