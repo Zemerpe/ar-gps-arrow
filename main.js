@@ -1,13 +1,13 @@
+// Use full CDN URLs for all modules
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-
 
 let scene, camera, renderer;
 let arrow;
 let userHeading = 0;
 
-// 🎯 Target GPS (change to your location)
+// 🎯 Target GPS (change this to your destination)
 const targetLat = 11.0245585;
 const targetLon = 124.0111658;
 
@@ -39,11 +39,11 @@ function initAR() {
 function loadArrowModel() {
     const loader = new GLTFLoader();
     loader.load(
-        './arrow.glb', // your arrow.glb
+        './arrow.glb',  // must be in same folder
         function (gltf) {
             arrow = gltf.scene;
-            arrow.scale.set(0.5, 0.5, 0.5); // adjust size
-            arrow.rotation.x = Math.PI / 2; // point forward
+            arrow.scale.set(0.5, 0.5, 0.5); 
+            arrow.rotation.x = Math.PI / 2;
             arrow.position.set(0, 0, -1.5);
 
             camera.add(arrow);
@@ -58,7 +58,6 @@ function loadArrowModel() {
 
 // ---------- GPS + Compass ----------
 function startSensors() {
-    // GPS
     if ('geolocation' in navigator) {
         navigator.geolocation.watchPosition(
             updateArrowDirection,
@@ -69,7 +68,6 @@ function startSensors() {
         alert("Geolocation not supported");
     }
 
-    // Compass
     window.addEventListener('deviceorientationabsolute', e => {
         if (e.alpha !== null) userHeading = e.alpha;
     }, true);
@@ -90,7 +88,7 @@ function updateArrowDirection(pos) {
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
 
-    if (!arrow) return; // wait for model to load
+    if (!arrow) return;
 
     const bearing = calculateBearing(lat, lon, targetLat, targetLon);
     const rotation = THREE.MathUtils.degToRad(bearing - userHeading);
@@ -108,6 +106,3 @@ document.getElementById('startBtn').onclick = () => {
     initAR();
     document.getElementById('startBtn').style.display = 'none';
 };
-
-
-
